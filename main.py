@@ -8,6 +8,7 @@ import book_search
 import borrowers
 import loans
 import fines
+from init_db import init_db
 
 
 def print_header():
@@ -316,6 +317,9 @@ def view_fines_menu():
 
 def main():
     """Main CLI menu loop."""
+    # Initialize database (create tables and import data if needed)
+    init_db()
+    
     print_header()
     
     while True:
