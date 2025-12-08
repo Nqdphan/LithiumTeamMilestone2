@@ -1,44 +1,33 @@
 """
-Fine management for the Library Management System.
+Fines router for the Library Management System API.
 Handles fine calculation, updates, and payment processing.
 """
 
 from datetime import date
+from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel, Field
+from typing import Optional
 from db import get_connection, get_dict_cursor
 
-
-class BooksStillOutError(Exception):
-    """Raised when trying to pay fines but some loans are still not returned."""
-    pass
+router = APIRouter()
 
 
-def update_fines(today: date | None = None) -> None:
+class PayFinesRequest(BaseModel):
+    card_id: str = Field(..., description="Borrower's card ID")
+
+
+@router.post("/update")
+def update_fines():
     """
-    Recompute fines for all overdue loans based on current dates.
-
+    Recompute fines for all overdue loans.
+    
     Fine rules:
-      - Rate: $0.25 per late day.
-      - Returned late:
-          if Date_in > Due_date:
-              late_days = DATEDIFF(Date_in, Due_date)
-      - Still checked out & overdue:
-          if Date_in IS NULL and today > Due_date:
-              late_days = DATEDIFF(today, Due_date)
-
-    For each Loan_id with late_days > 0:
-      - Fine_amt = late_days * 0.25 (DECIMAL(10,2)).
-      - If no FINES row exists yet, INSERT with Paid = 0.
-      - If FINES row exists and Paid = 0, UPDATE Fine_amt if it changed.
-      - If Paid = 1, leave it unchanged.
-
-    Use minimal number of queries and transactions for efficiency.
-    
-    Args:
-        today: The date to use for calculating current fines (defaults to today)
+    - Rate: $0.25 per late day
+    - Returned late: days = (date_in - due_date)
+    - Still out and overdue: days = (TODAY - due_date)
+    - Only updates unpaid fines (Paid = FALSE)
     """
-    if today is None:
-        today = date.today()
-    
+    today = date.today()
     conn = None
     cursor = None
     
@@ -64,9 +53,12 @@ def update_fines(today: date | None = None) -> None:
         cursor.execute(calculate_fines_sql, (today, today))
         overdue_loans = cursor.fetchall()
         
+        updated_count = 0
+        inserted_count = 0
+        
         for loan in overdue_loans:
             loan_id = loan['Loan_id']
-            fine_amt = loan['late_days'] * 0.25
+            fine_amt = float(loan['late_days']) * 0.25
             
             # Check if fine exists
             cursor.execute("SELECT Paid FROM FINES WHERE Loan_id = %s", (loan_id,))
@@ -78,20 +70,29 @@ def update_fines(today: date | None = None) -> None:
                     "INSERT INTO FINES (Loan_id, Fine_amt, Paid) VALUES (%s, %s, 0)",
                     (loan_id, fine_amt)
                 )
+                inserted_count += 1
             elif existing_fine['Paid'] == 0:
                 # Update unpaid fine
                 cursor.execute(
                     "UPDATE FINES SET Fine_amt = %s WHERE Loan_id = %s",
                     (fine_amt, loan_id)
                 )
+                updated_count += 1
             # If Paid = 1, do nothing
         
         conn.commit()
         
+        return {
+            "message": "Fines updated successfully",
+            "inserted": inserted_count,
+            "updated": updated_count,
+            "total_processed": len(overdue_loans)
+        }
+        
     except Exception as e:
         if conn:
             conn.rollback()
-        raise
+        raise HTTPException(status_code=500, detail=f"Error updating fines: {str(e)}")
     finally:
         if cursor:
             cursor.close()
@@ -99,27 +100,18 @@ def update_fines(today: date | None = None) -> None:
             conn.close()
 
 
-def get_fines_summary(card_id: int | None = None,
-                      include_paid: bool = False) -> list[dict]:
+@router.get("/summary")
+def get_fines_summary(
+    unpaid_only: bool = Query(True, description="Only show unpaid fines"),
+    card_id: Optional[str] = Query(None, description="Filter by specific borrower card ID")
+):
     """
-    Return per-borrower fine summaries.
-
-    - Join BORROWER, BOOK_LOANS, and FINES.
-    - If card_id is provided, restrict to that borrower.
-    - If include_paid is False, ignore rows where Paid = 1.
-    - Group by Card_id.
-
-    Each result dict should contain:
-      - 'card_id'
-      - 'borrower_name'
-      - 'total_fine' (sum of Fine_amt for that borrower)
-      
-    Args:
-        card_id: Optional card ID to filter by specific borrower
-        include_paid: Whether to include paid fines in the summary
-        
+    Get fine summaries grouped by borrower.
+    
     Returns:
-        list[dict]: List of fine summaries per borrower
+    - card_id: Borrower's card ID
+    - borrower_name: Borrower's name
+    - total_fine_amt: Total fine amount
     """
     conn = None
     cursor = None
@@ -132,7 +124,7 @@ def get_fines_summary(card_id: int | None = None,
             SELECT 
                 br.Card_id AS card_id,
                 br.Bname AS borrower_name,
-                SUM(f.Fine_amt) AS total_fine
+                SUM(f.Fine_amt) AS total_fine_amt
             FROM BORROWER br
             INNER JOIN BOOK_LOANS bl ON br.Card_id = bl.Card_id
             INNER JOIN FINES f ON bl.Loan_id = f.Loan_id
@@ -141,7 +133,7 @@ def get_fines_summary(card_id: int | None = None,
         
         params = []
         
-        if not include_paid:
+        if unpaid_only:
             sql += " AND f.Paid = 0"
         
         if card_id is not None:
@@ -151,8 +143,19 @@ def get_fines_summary(card_id: int | None = None,
         sql += " GROUP BY br.Card_id, br.Bname ORDER BY br.Bname"
         
         cursor.execute(sql, params)
-        return cursor.fetchall()
+        results = cursor.fetchall()
         
+        # Convert Decimal to float for JSON serialization
+        for row in results:
+            if row['total_fine_amt']:
+                row['total_fine_amt'] = float(row['total_fine_amt'])
+            else:
+                row['total_fine_amt'] = 0.0
+        
+        return results
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching fines summary: {str(e)}")
     finally:
         if cursor:
             cursor.close()
@@ -160,26 +163,15 @@ def get_fines_summary(card_id: int | None = None,
             conn.close()
 
 
-def pay_all_fines(card_id: int) -> None:
+@router.post("/pay")
+def pay_fines(request: PayFinesRequest):
     """
     Pay all unpaid fines for a borrower.
-
-    Rules:
-      - Fines can only be paid for loans that have been returned
-        (BOOK_LOANS.Date_in IS NOT NULL).
-      - If there exists any unpaid fine (Paid = 0) for this borrower
-        where the corresponding loan has Date_in IS NULL,
-        raise BooksStillOutError and do not update anything.
-      - Otherwise, set Paid = 1 for all FINES rows for this borrower
-        where Paid = 0.
-
-    Use a transaction and commit/rollback appropriately.
     
-    Args:
-        card_id: The borrower's card ID
-        
-    Raises:
-        BooksStillOutError: If borrower has unpaid fines for unreturned books
+    Rules:
+    - Cannot pay fines for books that are still checked out
+    - Marks all relevant FINES rows as Paid = TRUE
+    - No partial payments allowed
     """
     conn = None
     cursor = None
@@ -187,6 +179,11 @@ def pay_all_fines(card_id: int) -> None:
     try:
         conn = get_connection()
         cursor = get_dict_cursor(conn)
+        
+        # Verify borrower exists
+        cursor.execute("SELECT Card_id FROM BORROWER WHERE Card_id = %s", (request.card_id,))
+        if not cursor.fetchone():
+            raise HTTPException(status_code=404, detail=f"Borrower with Card ID {request.card_id} not found")
         
         # Check for unpaid fines on books still checked out
         check_sql = """
@@ -197,10 +194,11 @@ def pay_all_fines(card_id: int) -> None:
             AND f.Paid = 0
             AND bl.Date_in IS NULL
         """
-        cursor.execute(check_sql, (card_id,))
+        cursor.execute(check_sql, (request.card_id,))
         if cursor.fetchone()['cnt'] > 0:
-            raise BooksStillOutError(
-                f"Cannot pay fines for borrower {card_id}: some books with fines are still checked out"
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot pay fines for borrower {request.card_id}: some books with fines are still checked out"
             )
         
         # Pay all unpaid fines for returned books
@@ -212,17 +210,27 @@ def pay_all_fines(card_id: int) -> None:
             AND f.Paid = 0
             AND bl.Date_in IS NOT NULL
         """
-        cursor.execute(pay_sql, (card_id,))
+        cursor.execute(pay_sql, (request.card_id,))
+        rows_affected = cursor.rowcount
         conn.commit()
         
+        return {
+            "card_id": request.card_id,
+            "rows_updated": rows_affected,
+            "message": f"Successfully paid fines for borrower {request.card_id}"
+        }
+        
+    except HTTPException:
+        raise
     except Exception as e:
         if conn:
             conn.rollback()
-        raise
+        raise HTTPException(status_code=500, detail=f"Error paying fines: {str(e)}")
     finally:
         if cursor:
             cursor.close()
         if conn:
             conn.close()
+
 
 

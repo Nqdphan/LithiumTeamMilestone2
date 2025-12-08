@@ -1,0 +1,143 @@
+.fines {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+  color: white;
+}
+
+.fines-controls {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  margin-bottom: 20px;
+  padding: 15px;
+  background-color: #1a1a1a;
+  border-radius: 4px;
+}
+
+.control-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.control-group label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: bold;
+  cursor: pointer;
+  color: white;
+}
+
+.update-button,
+.refresh-button {
+  padding: 10px 20px;
+  font-size: 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.update-button {
+  background-color: #007bff;
+  color: white;
+}
+
+.update-button:hover:not(:disabled) {
+  background-color: #0056b3;
+}
+
+.refresh-button {
+  background-color: #6c757d;
+  color: white;
+}
+
+.refresh-button:hover:not(:disabled) {
+  background-color: #5a6268;
+}
+
+.update-button:disabled,
+.refresh-button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.fines-table-container {
+  overflow-x: auto;
+  margin-top: 20px;
+}
+
+.fines-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.fines-table th,
+.fines-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #444;
+}
+
+.fines-table th {
+  background-color: #1a1a1a;
+  font-weight: bold;
+  color: white;
+}
+
+.fines-table td {
+  color: white;
+}
+
+.fines-table tr:hover {
+  background-color: #2a2a2a;
+}
+
+.pay-button {
+  padding: 6px 12px;
+  font-size: 14px;
+  background-color: #28a745;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.pay-button:hover:not(:disabled) {
+  background-color: #218838;
+}
+
+.pay-button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.error-message {
+  padding: 10px;
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+  border-radius: 4px;
+  margin-top: 20px;
+}
+
+.success-message {
+  padding: 10px;
+  background-color: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+  border-radius: 4px;
+  margin-top: 20px;
+}
+
+.no-fines {
+  padding: 20px;
+  text-align: center;
+  color: #aaa;
+  font-size: 18px;
+  margin-top: 40px;
+}
+
+
+
