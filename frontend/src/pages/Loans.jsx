@@ -19,6 +19,7 @@ function Loans() {
   const [checkinLoading, setCheckinLoading] = useState(false);
   const [checkinMessage, setCheckinMessage] = useState(null);
   const [checkinError, setCheckinError] = useState(null);
+  const [hasSearched, setHasSearched] = useState(false);
 
   const handleCheckout = async (e) => {
     e.preventDefault();
@@ -41,6 +42,7 @@ function Loans() {
   const handleSearchLoans = async () => {
     setLoansLoading(true);
     setCheckinError(null);
+    setHasSearched(true);
     try {
       const filters = {};
       if (loanFilters.isbn) filters.isbn = loanFilters.isbn;
@@ -49,9 +51,7 @@ function Loans() {
       
       const results = await getOpenLoans(filters);
       setOpenLoans(results);
-      if (results.length === 0) {
-        setCheckinError('No open loans found');
-      }
+      // Empty result set is a valid, successful response - not an error
     } catch (err) {
       setCheckinError(err.response?.data?.detail || 'Error fetching loans');
       setOpenLoans([]);
@@ -182,6 +182,11 @@ function Loans() {
 
           {checkinError && <div className="error-message">{checkinError}</div>}
           {checkinMessage && <div className="success-message">{checkinMessage}</div>}
+          {hasSearched && !loansLoading && openLoans.length === 0 && !checkinError && (
+            <div style={{ padding: '20px', textAlign: 'center', color: '#aaa', fontSize: '18px', marginTop: '20px' }}>
+              No open loans found matching your search criteria.
+            </div>
+          )}
 
           {openLoans.length > 0 && (
             <div className="loans-table-container">
