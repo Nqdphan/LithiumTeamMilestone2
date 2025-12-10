@@ -6,6 +6,8 @@ Handles borrower creation and management.
 import re
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
+import mysql.connector
+from mysql.connector import Error
 from db import get_connection, get_dict_cursor
 
 router = APIRouter()
@@ -61,8 +63,13 @@ def create_borrower(borrower: BorrowerCreate):
     Create a new borrower.
     
     - All fields are required
-    - SSN must be unique (returns 400 if duplicate)
+    - SSN must be unique (returns 409 Conflict if duplicate)
     - Card_id is auto-generated
+    
+    Raises:
+        HTTPException 400: If required fields are missing
+        HTTPException 409: If SSN already exists
+        HTTPException 500: If database error occurs
     """
     # Validate inputs
     if not borrower.ssn or not borrower.name or not borrower.address or not borrower.phone:
@@ -78,12 +85,12 @@ def create_borrower(borrower: BorrowerCreate):
         conn = get_connection()
         cursor = get_dict_cursor(conn)
         
-        # Check if SSN already exists
+        # Application-level check: Verify SSN uniqueness before insertion
         cursor.execute("SELECT Card_id FROM BORROWER WHERE Ssn = %s", (borrower.ssn,))
         existing = cursor.fetchone()
         if existing:
             raise HTTPException(
-                status_code=400,
+                status_code=409,
                 detail=f"A borrower with SSN {borrower.ssn} already exists"
             )
         
@@ -104,11 +111,43 @@ def create_borrower(borrower: BorrowerCreate):
         }
         
     except HTTPException:
-        raise
-    except Exception as e:
+        # Re-raise HTTP exceptions (including our 409 for duplicate SSN)
         if conn:
             conn.rollback()
-        raise HTTPException(status_code=500, detail=f"Error creating borrower: {str(e)}")
+        raise
+    except Error as db_error:
+        # Handle MySQL database errors
+        if conn:
+            conn.rollback()
+        
+        # Check for unique constraint violation (error code 1062)
+        if db_error.errno == 1062:
+            # Extract SSN from error message if possible, otherwise use provided SSN
+            error_msg = str(db_error.msg)
+            if 'Ssn' in error_msg or 'Duplicate entry' in error_msg:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"A borrower with SSN {borrower.ssn} already exists"
+                )
+            else:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Duplicate entry detected: {error_msg}"
+                )
+        else:
+            # Other database errors
+            raise HTTPException(
+                status_code=500,
+                detail=f"Database error creating borrower: {str(db_error)}"
+            )
+    except Exception as e:
+        # Handle any other unexpected errors
+        if conn:
+            conn.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error creating borrower: {str(e)}"
+        )
     finally:
         if cursor:
             cursor.close()

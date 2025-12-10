@@ -24,6 +24,7 @@ function Loans() {
   const [checkinMessage, setCheckinMessage] = useState(null);
   const [checkinError, setCheckinError] = useState(null);
   const [hasSearched, setHasSearched] = useState(false);
+  const [selectedLoanId, setSelectedLoanId] = useState(null);
 
   const handleCheckout = async (e) => {
     e.preventDefault();
@@ -49,6 +50,7 @@ function Loans() {
     setLoansLoading(true);
     setCheckinError(null);
     setHasSearched(true);
+    setSelectedLoanId(null); // Clear selection when searching
     try {
       const filters = {};
       if (loanFilters.isbn) filters.isbn = loanFilters.isbn;
@@ -66,8 +68,16 @@ function Loans() {
     }
   };
 
-  const handleCheckin = async (loanId) => {
-    if (!window.confirm(`Are you sure you want to check in loan ${loanId}?`)) {
+  const handleCheckin = async () => {
+    if (!selectedLoanId) {
+      return;
+    }
+
+    if (
+      !window.confirm(
+        `Are you sure you want to check in loan ${selectedLoanId}?`
+      )
+    ) {
       return;
     }
 
@@ -76,10 +86,12 @@ function Loans() {
     setCheckinMessage(null);
 
     try {
-      const result = await checkinBook(loanId);
+      const result = await checkinBook(selectedLoanId);
       setCheckinMessage(
         `Book checked in successfully! Loan ID: ${result.loan_id}`
       );
+      // Clear selection
+      setSelectedLoanId(null);
       // Refresh the loans list
       handleSearchLoans();
     } catch (err) {
@@ -87,6 +99,10 @@ function Loans() {
     } finally {
       setCheckinLoading(false);
     }
+  };
+
+  const handleRowSelect = (loanId) => {
+    setSelectedLoanId(loanId);
   };
 
   return (
@@ -225,9 +241,24 @@ function Loans() {
 
           {openLoans.length > 0 && (
             <div className="loans-table-container">
+              <div className="checkin-action-bar">
+                <button
+                  onClick={handleCheckin}
+                  disabled={checkinLoading || !selectedLoanId}
+                  className="checkin-selected-button"
+                >
+                  {checkinLoading ? "Processing..." : "Check In Selected"}
+                </button>
+                {selectedLoanId && (
+                  <span className="selected-loan-info">
+                    Selected: Loan ID {selectedLoanId}
+                  </span>
+                )}
+              </div>
               <table className="loans-table">
                 <thead>
                   <tr>
+                    <th style={{ width: "50px" }}>Select</th>
                     <th>Loan ID</th>
                     <th>ISBN</th>
                     <th>Title</th>
@@ -235,12 +266,27 @@ function Loans() {
                     <th>Borrower Name</th>
                     <th>Date Out</th>
                     <th>Due Date</th>
-                    <th>Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {openLoans.map((loan) => (
-                    <tr key={loan.loan_id}>
+                    <tr
+                      key={loan.loan_id}
+                      className={
+                        selectedLoanId === loan.loan_id ? "selected-row" : ""
+                      }
+                      onClick={() => handleRowSelect(loan.loan_id)}
+                      style={{ cursor: "pointer" }}
+                    >
+                      <td onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="radio"
+                          name="selectedLoan"
+                          checked={selectedLoanId === loan.loan_id}
+                          onChange={() => handleRowSelect(loan.loan_id)}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </td>
                       <td>{loan.loan_id}</td>
                       <td>{loan.isbn}</td>
                       <td>{loan.title}</td>
@@ -248,15 +294,6 @@ function Loans() {
                       <td>{loan.borrower_name}</td>
                       <td>{loan.date_out}</td>
                       <td>{loan.due_date}</td>
-                      <td>
-                        <button
-                          onClick={() => handleCheckin(loan.loan_id)}
-                          disabled={checkinLoading}
-                          className="checkin-button"
-                        >
-                          Check In
-                        </button>
-                      </td>
                     </tr>
                   ))}
                 </tbody>
