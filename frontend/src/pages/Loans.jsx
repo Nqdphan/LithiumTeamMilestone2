@@ -1,20 +1,24 @@
-import { useState } from 'react';
-import { checkoutBook, getOpenLoans, checkinBook } from '../api';
-import './Loans.css';
+import { useState } from "react";
+import { checkoutBook, getOpenLoans, checkinBook } from "../api";
+import "./Loans.css";
 
 function Loans() {
-  const [activeTab, setActiveTab] = useState('checkout');
-  
+  const [activeTab, setActiveTab] = useState("checkout");
+
   // Checkout state
-  const [checkoutIsbn, setCheckoutIsbn] = useState('');
-  const [checkoutCardId, setCheckoutCardId] = useState('');
+  const [checkoutIsbn, setCheckoutIsbn] = useState("");
+  const [checkoutCardId, setCheckoutCardId] = useState("");
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [checkoutMessage, setCheckoutMessage] = useState(null);
   const [checkoutError, setCheckoutError] = useState(null);
 
   // Checkin state
   const [openLoans, setOpenLoans] = useState([]);
-  const [loanFilters, setLoanFilters] = useState({ isbn: '', card_id: '', name_query: '' });
+  const [loanFilters, setLoanFilters] = useState({
+    isbn: "",
+    card_id: "",
+    name_query: "",
+  });
   const [loansLoading, setLoansLoading] = useState(false);
   const [checkinLoading, setCheckinLoading] = useState(false);
   const [checkinMessage, setCheckinMessage] = useState(null);
@@ -29,11 +33,13 @@ function Loans() {
 
     try {
       const result = await checkoutBook(checkoutIsbn, checkoutCardId);
-      setCheckoutMessage(`Book checked out successfully! Loan ID: ${result.loan_id}, Due Date: ${result.due_date}`);
-      setCheckoutIsbn('');
-      setCheckoutCardId('');
+      setCheckoutMessage(
+        `Book checked out successfully! Loan ID: ${result.loan_id}, Due Date: ${result.due_date}`
+      );
+      setCheckoutIsbn("");
+      setCheckoutCardId("");
     } catch (err) {
-      setCheckoutError(err.response?.data?.detail || 'Error checking out book');
+      setCheckoutError(err.response?.data?.detail || "Error checking out book");
     } finally {
       setCheckoutLoading(false);
     }
@@ -48,12 +54,12 @@ function Loans() {
       if (loanFilters.isbn) filters.isbn = loanFilters.isbn;
       if (loanFilters.card_id) filters.card_id = loanFilters.card_id;
       if (loanFilters.name_query) filters.name_query = loanFilters.name_query;
-      
+
       const results = await getOpenLoans(filters);
       setOpenLoans(results);
       // Empty result set is a valid, successful response - not an error
     } catch (err) {
-      setCheckinError(err.response?.data?.detail || 'Error fetching loans');
+      setCheckinError(err.response?.data?.detail || "Error fetching loans");
       setOpenLoans([]);
     } finally {
       setLoansLoading(false);
@@ -71,11 +77,13 @@ function Loans() {
 
     try {
       const result = await checkinBook(loanId);
-      setCheckinMessage(`Book checked in successfully! Loan ID: ${result.loan_id}`);
+      setCheckinMessage(
+        `Book checked in successfully! Loan ID: ${result.loan_id}`
+      );
       // Refresh the loans list
       handleSearchLoans();
     } catch (err) {
-      setCheckinError(err.response?.data?.detail || 'Error checking in book');
+      setCheckinError(err.response?.data?.detail || "Error checking in book");
     } finally {
       setCheckinLoading(false);
     }
@@ -87,20 +95,20 @@ function Loans() {
 
       <div className="tabs">
         <button
-          className={activeTab === 'checkout' ? 'active' : ''}
-          onClick={() => setActiveTab('checkout')}
+          className={activeTab === "checkout" ? "active" : ""}
+          onClick={() => setActiveTab("checkout")}
         >
           Checkout Book
         </button>
         <button
-          className={activeTab === 'checkin' ? 'active' : ''}
-          onClick={() => setActiveTab('checkin')}
+          className={activeTab === "checkin" ? "active" : ""}
+          onClick={() => setActiveTab("checkin")}
         >
           Check-in Book
         </button>
       </div>
 
-      {activeTab === 'checkout' && (
+      {activeTab === "checkout" && (
         <div className="checkout-section">
           <h2>Checkout Book</h2>
           <form onSubmit={handleCheckout} className="checkout-form">
@@ -126,19 +134,27 @@ function Loans() {
                 placeholder="Enter Card ID"
               />
             </div>
-            <button type="submit" disabled={checkoutLoading} className="submit-button">
-              {checkoutLoading ? 'Processing...' : 'Checkout'}
+            <button
+              type="submit"
+              disabled={checkoutLoading}
+              className="submit-button"
+            >
+              {checkoutLoading ? "Processing..." : "Checkout"}
             </button>
           </form>
-          {checkoutError && <div className="error-message">{checkoutError}</div>}
-          {checkoutMessage && <div className="success-message">{checkoutMessage}</div>}
+          {checkoutError && (
+            <div className="error-message">{checkoutError}</div>
+          )}
+          {checkoutMessage && (
+            <div className="success-message">{checkoutMessage}</div>
+          )}
         </div>
       )}
 
-      {activeTab === 'checkin' && (
+      {activeTab === "checkin" && (
         <div className="checkin-section">
           <h2>Check-in Book</h2>
-          
+
           <div className="loan-filters">
             <div className="form-group">
               <label htmlFor="filter-isbn">Filter by ISBN</label>
@@ -146,7 +162,9 @@ function Loans() {
                 type="text"
                 id="filter-isbn"
                 value={loanFilters.isbn}
-                onChange={(e) => setLoanFilters({ ...loanFilters, isbn: e.target.value })}
+                onChange={(e) =>
+                  setLoanFilters({ ...loanFilters, isbn: e.target.value })
+                }
                 placeholder="ISBN"
               />
             </div>
@@ -156,7 +174,9 @@ function Loans() {
                 type="text"
                 id="filter-card-id"
                 value={loanFilters.card_id}
-                onChange={(e) => setLoanFilters({ ...loanFilters, card_id: e.target.value })}
+                onChange={(e) =>
+                  setLoanFilters({ ...loanFilters, card_id: e.target.value })
+                }
                 placeholder="Card ID"
               />
             </div>
@@ -166,7 +186,9 @@ function Loans() {
                 type="text"
                 id="filter-name"
                 value={loanFilters.name_query}
-                onChange={(e) => setLoanFilters({ ...loanFilters, name_query: e.target.value })}
+                onChange={(e) =>
+                  setLoanFilters({ ...loanFilters, name_query: e.target.value })
+                }
                 placeholder="Borrower name"
               />
             </div>
@@ -176,17 +198,30 @@ function Loans() {
               disabled={loansLoading}
               className="search-button"
             >
-              {loansLoading ? 'Searching...' : 'Search Loans'}
+              {loansLoading ? "Searching..." : "Search Loans"}
             </button>
           </div>
 
           {checkinError && <div className="error-message">{checkinError}</div>}
-          {checkinMessage && <div className="success-message">{checkinMessage}</div>}
-          {hasSearched && !loansLoading && openLoans.length === 0 && !checkinError && (
-            <div style={{ padding: '20px', textAlign: 'center', color: '#aaa', fontSize: '18px', marginTop: '20px' }}>
-              No open loans found matching your search criteria.
-            </div>
+          {checkinMessage && (
+            <div className="success-message">{checkinMessage}</div>
           )}
+          {hasSearched &&
+            !loansLoading &&
+            openLoans.length === 0 &&
+            !checkinError && (
+              <div
+                style={{
+                  padding: "20px",
+                  textAlign: "center",
+                  color: "#aaa",
+                  fontSize: "18px",
+                  marginTop: "20px",
+                }}
+              >
+                No open loans found matching your search criteria.
+              </div>
+            )}
 
           {openLoans.length > 0 && (
             <div className="loans-table-container">
@@ -235,6 +270,3 @@ function Loans() {
 }
 
 export default Loans;
-
-
-
