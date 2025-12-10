@@ -16,21 +16,31 @@ function Fines() {
   const loadFines = async (overrideCardId = null, overrideName = null) => {
     setLoading(true);
     setError(null);
+    setMessage(null);
     try {
+      const rawCardId = overrideCardId !== null ? overrideCardId : cardIdFilter;
+      const rawName = overrideName !== null ? overrideName : nameFilter;
+
       const cardId =
-        overrideCardId !== null ? overrideCardId : cardIdFilter.trim() || null;
-      const name =
-        overrideName !== null ? overrideName : nameFilter.trim() || null;
-      const results = await getFinesSummary(unpaidOnly, cardId, name);
+        typeof rawCardId === "string" ? rawCardId.trim() || null : null;
+
+      const name = typeof rawName === "string" ? rawName.trim() || null : null;
+
+      const response = await getFinesSummary(unpaidOnly, cardId, name);
+      // Successfully loaded - clear any previous error state
+      setError(null);
+      // Handle the response data
+      const results = Array.isArray(response) ? response : [];
       setFines(results);
-      if (results.length === 0) {
-        setMessage("No fines found");
-      } else {
-        setMessage(null);
-      }
+      // Empty list is a valid state, not an error - no need to set message here
+      // The "No fines found" message will be shown via conditional rendering
     } catch (err) {
-      setError(err.response?.data?.detail || "Error loading fines");
+      // Only set error for actual failures (non-2xx responses or network errors)
+      setError(
+        err.response?.data?.detail || err.message || "Error loading fines"
+      );
       setFines([]);
+      setMessage(null);
     } finally {
       setLoading(false);
     }
@@ -38,6 +48,7 @@ function Fines() {
 
   useEffect(() => {
     loadFines();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [unpaidOnly]);
 
   const handleSearch = () => {
@@ -47,7 +58,7 @@ function Fines() {
   const handleClearFilters = () => {
     setCardIdFilter("");
     setNameFilter("");
-    loadFines("", "");
+    loadFines(null, null);
   };
 
   const handleUpdateFines = async () => {
@@ -164,7 +175,7 @@ function Fines() {
           {updating ? "Updating..." : "Refresh Fines"}
         </button>
         <button
-          onClick={loadFines}
+          onClick={() => loadFines()}
           disabled={loading}
           className="refresh-button"
         >
@@ -173,7 +184,7 @@ function Fines() {
       </div>
 
       {error && <div className="error-message">{error}</div>}
-      {message && <div className="success-message">{message}</div>}
+      {message && !error && <div className="success-message">{message}</div>}
 
       {fines.length > 0 && (
         <div className="fines-table-container">
