@@ -33,10 +33,12 @@ LithiumTeam/
 
 ## Prerequisites
 
-- Python 3.8+
-- Node.js 16+ and npm
-- MySQL database server
-- MySQL database named `library` (or configure in `.env`)
+Before starting, ensure you have:
+
+- Python 3.8+ installed
+- Node.js 16+ and npm installed
+- MySQL database server running
+- MySQL database named `library` created (create it manually if it doesn't exist: `CREATE DATABASE library;`)
 
 ## Setup Instructions
 
@@ -70,11 +72,15 @@ DB_PASSWORD=your_password
 DB_NAME=library
 ```
 
+**Important**: Replace `your_password` with your actual MySQL root password (or the password for the user specified in `DB_USER`).
+
 5. Initialize the database (creates tables and imports CSV data):
 
 ```bash
 python init_db.py
 ```
+
+**Note**: This script is safe to run multiple times. It only imports CSV data if the tables are empty, so you can re-run it without duplicating data.
 
 6. Start the FastAPI server:
 
@@ -105,7 +111,15 @@ npm install
 npm run dev
 ```
 
-The frontend will be available at `http://localhost:3000` (or the port shown in the terminal)
+The frontend will be available at `http://localhost:5173` (Vite default port) or the port shown in the terminal output.
+
+## Running the System End-to-End
+
+1. **Start Backend** (Terminal 1): Run `uvicorn main:app --reload --port 8000` in the `backend/` directory
+2. **Start Frontend** (Terminal 2): Run `npm run dev` in the `frontend/` directory
+3. **Open Browser**: Navigate to the frontend URL (typically `http://localhost:5173`)
+
+Both servers must be running concurrently for the application to work properly.
 
 ## API Endpoints
 
@@ -125,9 +139,9 @@ The frontend will be available at `http://localhost:3000` (or the port shown in 
 
 ### Fines
 
-- `POST /fines/update` - Update fines for all overdue loans
-- `GET /fines/summary` - Get fines summary by borrower
-- `POST /fines/pay` - Pay all fines for a borrower
+- `POST /fines/update` - Update fines for all overdue loans (recalculates fines for overdue books)
+- `GET /fines/summary` - Get fines summary by borrower (supports optional filters: `unpaid_only`, `card_id`, `name`)
+- `POST /fines/pay` - Pay all fines for a borrower (only for returned books)
 
 ## Features
 
@@ -164,7 +178,7 @@ The frontend will be available at `http://localhost:3000` (or the port shown in 
 
 - The backend uses FastAPI with automatic API documentation
 - Visit `http://localhost:8000/docs` for interactive API documentation
-- CORS is configured to allow requests from `http://localhost:3000`
+- CORS is configured to allow requests from common development ports (3000, 5173, 5174)
 
 ### Frontend Development
 
@@ -172,9 +186,36 @@ The frontend will be available at `http://localhost:3000` (or the port shown in 
 - Uses React Router for navigation
 - API calls are centralized in `src/api.js`
 
+## Troubleshooting
+
+### Backend Issues
+
+- Make sure MySQL is running
+- Verify `.env` file exists in `backend/` directory with correct credentials
+- Ensure database `library` exists (create it manually: `CREATE DATABASE library;`)
+- Run `python init_db.py` if tables don't exist (safe to run multiple times)
+- Check that `DB_PASSWORD` is set correctly in `.env`
+- Verify MySQL user has permissions to access the database
+
+### Frontend Issues
+
+- Make sure backend is running on port 8000
+- Check browser console for CORS errors
+- Verify API calls in Network tab
+- Ensure frontend port matches what's shown in terminal (Vite defaults to 5173)
+
+### Database Connection Issues
+
+- Verify MySQL credentials in `.env` file
+- Ensure MySQL server is accessible
+- Check that database `library` exists
+- Verify MySQL user has permissions to access the database
+
 ## Notes
 
 - The database schema is defined in `backend/init_db.py`
 - CSV files are imported automatically on first run if tables are empty
+- The `init_db.py` script is idempotent - safe to run multiple times without duplicating data
 - All database operations use transactions for data integrity
 - The frontend expects the backend to be running on port 8000
+- CORS is configured to allow requests from common development ports (3000, 5173, 5174)
