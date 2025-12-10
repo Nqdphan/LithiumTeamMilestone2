@@ -47,10 +47,17 @@ export const updateFines = async () => {
   return response.data;
 };
 
-export const getFinesSummary = async (unpaidOnly = true, cardId = null) => {
+export const getFinesSummary = async (
+  unpaidOnly = true,
+  cardId = null,
+  name = null
+) => {
   const params = { unpaid_only: unpaidOnly };
-  if (cardId) {
-    params.card_id = cardId;
+  if (cardId && cardId.trim()) {
+    params.card_id = cardId.trim();
+  }
+  if (name && name.trim()) {
+    params.name = name.trim();
   }
   const response = await api.get("/fines/summary", { params });
   return response.data;

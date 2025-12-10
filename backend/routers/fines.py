@@ -103,7 +103,8 @@ def update_fines():
 @router.get("/summary")
 def get_fines_summary(
     unpaid_only: bool = Query(True, description="Only show unpaid fines"),
-    card_id: Optional[str] = Query(None, description="Filter by specific borrower card ID")
+    card_id: Optional[str] = Query(None, description="Filter by specific borrower card ID"),
+    name: Optional[str] = Query(None, description="Filter by substring of borrower name (case-insensitive)")
 ):
     """
     Get fine summaries grouped by borrower.
@@ -139,6 +140,10 @@ def get_fines_summary(
         if card_id is not None:
             sql += " AND br.Card_id = %s"
             params.append(card_id)
+        
+        if name is not None and name.strip():
+            sql += " AND LOWER(br.Bname) LIKE LOWER(%s)"
+            params.append(f"%{name.strip()}%")
         
         sql += " GROUP BY br.Card_id, br.Bname ORDER BY br.Bname"
         

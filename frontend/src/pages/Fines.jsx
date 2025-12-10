@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
-import { updateFines, getFinesSummary, payFines } from '../api';
-import './Fines.css';
+import { useState, useEffect } from "react";
+import { updateFines, getFinesSummary, payFines } from "../api";
+import "./Fines.css";
 
 function Fines() {
   const [fines, setFines] = useState([]);
@@ -10,20 +10,26 @@ function Fines() {
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
   const [unpaidOnly, setUnpaidOnly] = useState(true);
+  const [cardIdFilter, setCardIdFilter] = useState("");
+  const [nameFilter, setNameFilter] = useState("");
 
-  const loadFines = async () => {
+  const loadFines = async (overrideCardId = null, overrideName = null) => {
     setLoading(true);
     setError(null);
     try {
-      const results = await getFinesSummary(unpaidOnly);
+      const cardId =
+        overrideCardId !== null ? overrideCardId : cardIdFilter.trim() || null;
+      const name =
+        overrideName !== null ? overrideName : nameFilter.trim() || null;
+      const results = await getFinesSummary(unpaidOnly, cardId, name);
       setFines(results);
       if (results.length === 0) {
-        setMessage('No fines found');
+        setMessage("No fines found");
       } else {
         setMessage(null);
       }
     } catch (err) {
-      setError(err.response?.data?.detail || 'Error loading fines');
+      setError(err.response?.data?.detail || "Error loading fines");
       setFines([]);
     } finally {
       setLoading(false);
@@ -34,17 +40,29 @@ function Fines() {
     loadFines();
   }, [unpaidOnly]);
 
+  const handleSearch = () => {
+    loadFines();
+  };
+
+  const handleClearFilters = () => {
+    setCardIdFilter("");
+    setNameFilter("");
+    loadFines("", "");
+  };
+
   const handleUpdateFines = async () => {
     setUpdating(true);
     setError(null);
     setMessage(null);
     try {
       const result = await updateFines();
-      setMessage(`Fines updated! Inserted: ${result.inserted}, Updated: ${result.updated}`);
+      setMessage(
+        `Fines updated! Inserted: ${result.inserted}, Updated: ${result.updated}`
+      );
       // Reload fines after update
       await loadFines();
     } catch (err) {
-      setError(err.response?.data?.detail || 'Error updating fines');
+      setError(err.response?.data?.detail || "Error updating fines");
     } finally {
       setUpdating(false);
     }
@@ -60,11 +78,13 @@ function Fines() {
     setMessage(null);
     try {
       const result = await payFines(cardId);
-      setMessage(`Successfully paid fines for borrower ${cardId}! Rows updated: ${result.rows_updated}`);
+      setMessage(
+        `Successfully paid fines for borrower ${cardId}! Rows updated: ${result.rows_updated}`
+      );
       // Reload fines after payment
       await loadFines();
     } catch (err) {
-      setError(err.response?.data?.detail || 'Error paying fines');
+      setError(err.response?.data?.detail || "Error paying fines");
     } finally {
       setPaying(null);
     }
@@ -73,6 +93,57 @@ function Fines() {
   return (
     <div className="fines">
       <h1>Fines Management</h1>
+
+      <div className="search-section">
+        <div className="search-inputs">
+          <div className="search-input-group">
+            <label htmlFor="cardIdSearch">Borrower ID:</label>
+            <input
+              id="cardIdSearch"
+              type="text"
+              placeholder="Search by Borrower ID"
+              value={cardIdFilter}
+              onChange={(e) => setCardIdFilter(e.target.value)}
+              onKeyPress={(e) => {
+                if (e.key === "Enter") {
+                  handleSearch();
+                }
+              }}
+            />
+          </div>
+          <div className="search-input-group">
+            <label htmlFor="nameSearch">Borrower Name:</label>
+            <input
+              id="nameSearch"
+              type="text"
+              placeholder="Search by Borrower Name"
+              value={nameFilter}
+              onChange={(e) => setNameFilter(e.target.value)}
+              onKeyPress={(e) => {
+                if (e.key === "Enter") {
+                  handleSearch();
+                }
+              }}
+            />
+          </div>
+          <div className="search-buttons">
+            <button
+              onClick={handleSearch}
+              disabled={loading}
+              className="search-button"
+            >
+              {loading ? "Searching..." : "Search"}
+            </button>
+            <button
+              onClick={handleClearFilters}
+              disabled={loading}
+              className="clear-button"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      </div>
 
       <div className="fines-controls">
         <div className="control-group">
@@ -90,14 +161,14 @@ function Fines() {
           disabled={updating}
           className="update-button"
         >
-          {updating ? 'Updating...' : 'Refresh Fines'}
+          {updating ? "Updating..." : "Refresh Fines"}
         </button>
         <button
           onClick={loadFines}
           disabled={loading}
           className="refresh-button"
         >
-          {loading ? 'Loading...' : 'Refresh List'}
+          {loading ? "Loading..." : "Refresh List"}
         </button>
       </div>
 
@@ -127,7 +198,7 @@ function Fines() {
                       disabled={paying === fine.card_id || unpaidOnly === false}
                       className="pay-button"
                     >
-                      {paying === fine.card_id ? 'Processing...' : 'Pay All'}
+                      {paying === fine.card_id ? "Processing..." : "Pay All"}
                     </button>
                   </td>
                 </tr>
@@ -145,6 +216,3 @@ function Fines() {
 }
 
 export default Fines;
-
-
-
