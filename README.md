@@ -48,4 +48,4 @@ cd frontend
 npm install
 ```
 
-For how to run the application, check the **Quick Start Guide**.
+For how to run the application, check the included **Quick Start Guide**.
